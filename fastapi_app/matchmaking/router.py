@@ -8,13 +8,13 @@ from fastapi_app.redis.queue import enqueue_user, dequeue_users, get_queue_lengt
  
 router = APIRouter()
 
-
+## Force Add
 @router.post("/enqueue")
 def enqueue(domain: str, room_type: str, user_id: str):
     enqueue_user(domain, room_type, user_id)
     return {"message": "User added to queue", "queue_length": get_queue_length()}
 
-
+## Force Remove
 @router.get("/dequeue")
 def dequeue():
     users = dequeue_users()
