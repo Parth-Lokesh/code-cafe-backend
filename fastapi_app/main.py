@@ -3,7 +3,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from fastapi_app.code_editor.router import router as editor_router  # ✅ this line
+from fastapi_app.code_editor.router import router as editor_router
+from fastapi_app.domain.router import router as domain_router
+from fastapi_app.matchmaking.router import router as matchmaking_router
 
 app = FastAPI()
 
@@ -15,7 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(editor_router)  # ✅ register the router
+# Register routers
+app.include_router(editor_router)
+app.include_router(domain_router, prefix="/api")
+app.include_router(matchmaking_router, prefix="/api/matchmaking")
+
 
 @app.get("/")
 def root():
