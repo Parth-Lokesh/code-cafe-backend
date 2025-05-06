@@ -20,12 +20,17 @@ def is_user_already_in_queue(domain: str, room_type: str, user_id: str) -> bool:
     return False
 
 
-def enqueue_user(domain: str, room_type: str, user_id: str) -> bool:
-    if is_user_already_in_queue(domain, room_type, user_id):
-        return False  # User already in queue
-    queue_key = get_queue_key(domain, room_type)
-    user_data = json.dumps({"user_id": user_id})
-    redis_client.rpush(queue_key, user_data)
+def enqueue_user(domain: str, user_id: str) -> bool:
+    queue_key = f"queue:{domain}"
+
+    existing_users = redis_client.lrange(queue_key, 0, -1)
+    for u in existing_users:
+        user = json.loads(u)
+        if user["user_id"] == user_id:
+            return False  # already in queue
+
+    user_data = {"user_id": user_id}
+    redis_client.rpush(queue_key, json.dumps(user_data))
     return True
 
 
