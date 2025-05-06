@@ -19,30 +19,34 @@ async def matchmaking_loop():
         keys = redis_client.keys("queue:*")
 
         for key in keys:
-            domain, room_type = key.split(":")[1], key.split(":")[2]
+            # Decode the key to string
+            decoded_key = key.decode("utf-8")  # Convert bytes to string
+            domain, room_type = decoded_key.split(
+                ":")[1], decoded_key.split(":")[2]
             length = redis_client.llen(key)
 
             while length >= ROOM_SIZE:
                 users = []
                 skipped_users = []
 
-                for _ in range(length):
+                for _ in range(length):  # loop through all in queue
                     user_data = redis_client.lpop(key)
                     if not user_data:
                         continue
 
                     user = json.loads(user_data)
 
+                    # Check if user is already in a room
                     if await is_user_already_in_room(user["user_id"]):
                         print(f"Skipping {user['user_id']}: already in a room")
-                        skipped_users.append(user)
                         continue
 
                     users.append(user)
+
                     if len(users) == ROOM_SIZE:
                         break
 
-                # Re-queue skipped users
+                # Push skipped users back
                 for user in skipped_users:
                     redis_client.rpush(key, json.dumps(user))
 
@@ -56,11 +60,11 @@ async def matchmaking_loop():
                     await db.rooms.insert_one(room)
                     print(f"Room created: {room}")
                 else:
-                    # Requeue the unmatched users
+                    # Requeue unpaired users
                     for user in users:
                         redis_client.rpush(key, json.dumps(user))
-                    break  # Not enough valid users
+                    break  # not enough users to form a room
 
                 length = redis_client.llen(key)
 
-        await asyncio.sleep(2)
+        await asyncio.sleep(2)  # sleep for 2 seconds before checking again

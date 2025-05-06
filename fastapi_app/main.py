@@ -13,6 +13,9 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
 from fastapi_app.queue.matchmaking_worker import matchmaking_loop
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+import httpx
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,6 +34,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+PISTON_URL = "https://emkc.org/api/v2/piston/execute"
+
 # Register routers
 app.include_router(editor_router)
 app.include_router(domain_router, prefix="/api")
@@ -41,3 +46,14 @@ app.include_router(queue_router, prefix="/api")
 @app.get("/")
 def root():
     return {"msg": "Backend running"}
+
+
+@app.post("/run-code")
+async def run_code(request: Request):
+    payload = await request.json()
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(PISTON_URL, json=payload)
+            return response.json()
+        except Exception as e:
+            return {"error": str(e)}
