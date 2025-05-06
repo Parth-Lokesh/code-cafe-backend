@@ -1,5 +1,6 @@
 # fastapi_app/main.py
 
+from fastapi_app.questiongenerator.questions import router as questions_router
 from fastapi_app.queue.matchmaking_worker import matchmaking_loop
 import asyncio
 from fastapi import FastAPI
@@ -41,6 +42,7 @@ app.include_router(editor_router)
 app.include_router(domain_router, prefix="/api")
 app.include_router(matchmaking_router, prefix="/api/matchmaking")
 app.include_router(queue_router, prefix="/api")
+app.include_router(questions_router, prefix="/api/questions")
 
 
 @app.get("/")

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import random
+import uuid
 from fastapi_app.database.mongo import db
 from fastapi_app.queue.redis_connection import redis_client
 
@@ -48,7 +49,9 @@ async def matchmaking_loop():
 
                 if len(users) == ROOM_SIZE:
                     random_room_type = random.choice(ROOM_TYPES)
+                    room_id = str(uuid.uuid4())
                     room = {
+                        "room_id": room_id,
                         "domain": domain,
                         "room_type": random_room_type,
                         "users": users,
