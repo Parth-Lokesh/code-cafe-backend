@@ -5,23 +5,45 @@ import json
 redis_client = redis.StrictRedis(
     host='localhost', port=6379, db=0, decode_responses=True)
 
-QUEUE_KEY = "matchmaking_queue"
+
+def get_queue_key(domain: str, room_type: str) -> str:
+    return f"queue:{domain}:{room_type}"
 
 
-def enqueue_user(domain: str, room_type: str, user_id: str):
-    user_data = json.dumps(
-        {"user_id": user_id, "domain": domain, "room_type": room_type})
-    redis_client.rpush(QUEUE_KEY, user_data)
+def is_user_already_in_queue(domain: str, room_type: str, user_id: str) -> bool:
+    queue_key = get_queue_key(domain, room_type)
+    queue = redis_client.lrange(queue_key, 0, -1)
+    for item in queue:
+        data = json.loads(item)
+        if data["user_id"] == user_id:
+            return True
+    return False
 
 
-def dequeue_users(batch_size=4):
+def enqueue_user(domain: str, user_id: str) -> bool:
+    queue_key = f"queue:{domain}"
+
+    existing_users = redis_client.lrange(queue_key, 0, -1)
+    for u in existing_users:
+        user = json.loads(u)
+        if user["user_id"] == user_id:
+            return False  # already in queue
+
+    user_data = {"user_id": user_id}
+    redis_client.rpush(queue_key, json.dumps(user_data))
+    return True
+
+
+def dequeue_users(domain: str, room_type: str, batch_size=4):
+    queue_key = get_queue_key(domain, room_type)
     users = []
     for _ in range(batch_size):
-        user_data = redis_client.lpop(QUEUE_KEY)
+        user_data = redis_client.lpop(queue_key)
         if user_data:
             users.append(json.loads(user_data))
     return users
 
 
-def get_queue_length():
-    return redis_client.llen(QUEUE_KEY)
+def get_queue_length(domain: str, room_type: str):
+    queue_key = get_queue_key(domain, room_type)
+    return redis_client.llen(queue_key)
