@@ -10,6 +10,7 @@ from fastapi_app.code_editor.router import router as editor_router
 from fastapi_app.domain.router import router as domain_router
 from fastapi_app.matchmaking.router import router as matchmaking_router
 from fastapi_app.queue.router import router as queue_router
+from fastapi_app.code_editor.code_submission import router as code_submission_router
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
@@ -43,6 +44,7 @@ app.include_router(domain_router, prefix="/api")
 app.include_router(matchmaking_router, prefix="/api/matchmaking")
 app.include_router(queue_router, prefix="/api")
 app.include_router(questions_router, prefix="/api/questions")
+app.include_router(code_submission_router, prefix="/api/questions")
 
 
 @app.get("/")
