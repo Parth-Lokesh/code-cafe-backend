@@ -8,3 +8,6 @@ google-generativeai
 google-api-core
 google-auth
 google-genai
+pydantic
+motor
+contextlib
