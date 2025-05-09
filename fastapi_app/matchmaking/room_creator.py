@@ -2,7 +2,7 @@ import json
 import time
 import asyncio
 from fastapi_app.database.mongo import db
-from fastapi_app.redis.queue import dequeue_users, get_queue_key, redis_client
+from fastapi_app.queue.queue import dequeue_users, get_queue_key, redis_client
 
 
 async def matchmaker(domain: str, room_type: str):
