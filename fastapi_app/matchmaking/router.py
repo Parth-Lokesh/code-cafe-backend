@@ -4,7 +4,7 @@ from fastapi import APIRouter
 import asyncio
 from fastapi_app.matchmaking.room_creator import matchmaker
 from fastapi import APIRouter, HTTPException
-from fastapi_app.redis.queue import enqueue_user, dequeue_users, get_queue_length
+from fastapi_app.queue.queue import enqueue_user, dequeue_users, get_queue_length
  
 router = APIRouter()
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from fastapi_app.redis.queue import enqueue_user, dequeue_users, get_queue_length
+from fastapi_app.queue.queue import enqueue_user, dequeue_users, get_queue_length
 
 router = APIRouter()
 

@@ -1,10 +1,6 @@
 import redis
 import json
-
-# Connect to Redis (adjust host/port if needed)
-redis_client = redis.StrictRedis(
-    host='localhost', port=6379, db=0, decode_responses=True)
-
+from fastapi_app.queue.redis_connection import redis_client
 
 def get_queue_key(domain: str, room_type: str) -> str:
     return f"queue:{domain}:{room_type}"

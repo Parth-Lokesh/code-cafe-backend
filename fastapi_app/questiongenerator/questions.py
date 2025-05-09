@@ -12,6 +12,7 @@ from fastapi_app.database.mongo import db
 import re
 from pydantic import BaseModel
 from typing import List, Dict
+from fastapi_app.questiongenerator.prompts import coding_prompt,debugging_prompt
 
 
 # Load env variables
@@ -25,83 +26,7 @@ router = APIRouter()
 # MongoDB
 rooms_collection = db.rooms
 
-
-@router.get("/test-gemini")
-async def test_gemini():
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents="How does AI work?"
-        )
-        return {"response": response.text}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-async def generate_coding_question():
-    prompt = """
-    Generate a simple to medium difficulty coding question.
-
-    Include:
-    1. Only 2 sample test cases (used for visible testing), in this format:
-    Input: <input>
-    Expected Output: <output>
-
-    2. The output datatype (one of: "int", "str", "float", "bool", "list[int]", "list[str]", etc).
-
-    3. Boilerplate code for three languages (Python, Java, C++).
-    Each should include:
-        - A function/class definition named appropriately where user writes code.
-        - A main function that runs all 10 hardcoded test cases, hardcode those test cases and expected answers in two arrays and then in a loop perform validation 
-        - Assume the user only writes the core function logic in the function/class definition.
-        - Do not give the logic of the solution anywhere, neither in the user's boilerplate nor in the main boilerplate, provide only function/class definition. 
-        - For java, import the required libraries in boilerplate Main class code, and not in Solution class.
-
-    In the main function logic store inputs and outputs for test cases in arrays and then check, and after checking each test case:
-    - If all tests pass, print "true"
-    - If any test fails, immediately print "false-<i>", where i is the failing test case index (1-based), and stop further checks.
-
-    Respond strictly in JSON like:
-    {
-    "question": "...",
-    "test_cases": [
-        { "input": "5", "output": "True" },
-        { "input": "4", "output": "False" }
-    ],
-    "output_datatype": "bool",
-    "boilerplate_code_user": {
-        "python": "def solve(...):\\n    # your code here",
-        "java": "public class Solution {\\n    // your code here\\n}",
-        "c++": "#include <iostream>\\nusing namespace std;\\n\\nvoid solve() {\\n    // your code here\\n}"
-    },
-    "boilerplate_code_main": {
-        "python": "if __name__ == '__main__':\\n    # call solve() with input/output logic",
-        "java": "public class Main {\\n    public static void main(String[] args) {\\n        // call Solution logic\\n    }\\n}",
-        "c++": "int main() {\\n    // call solve();\\n    return 0;\\n}"
-    }
-    }
-    """
-
-    response = client.models.generate_content(
-        model="gemini-2.0-flash", contents=[prompt])
-    return response.text
-
-
-async def generate_debugging_question():
-    prompt = """
-    Generate a buggy Python code snippet and a brief problem statement.
-    Provide 10 test cases with correct outputs.
-
-    Respond strictly in JSON like:
-    {
-        "question": "...",
-        "buggy_code": "...",
-        "test_cases": [
-            {"input": "5", "output": "120"},
-            ...
-        ]
-    }
-    """
+async def generate_prompt_response(prompt):
     response = client.models.generate_content(
         model="gemini-2.0-flash", contents=[prompt])
     return response.text
@@ -126,9 +51,9 @@ async def generate_questions(room_id: str):
 
         for _ in range(3):
             if q_type == "coding":
-                q_data_str = await generate_coding_question()
+                q_data_str = await generate_prompt_response(coding_prompt)
             else:
-                q_data_str = await generate_debugging_question()
+                q_data_str = await generate_prompt_response(debugging_prompt)
 
             q_data = extract_json_block(q_data_str)
 
@@ -165,7 +90,7 @@ async def get_all_rooms():
     try:
         rooms = await rooms_collection.find().to_list(length=None)
         for room in rooms:
-            room["_id"] = str(room["_id"])  # convert ObjectId to string
+            room["_id"] = str(room["_id"]) 
         return rooms
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
