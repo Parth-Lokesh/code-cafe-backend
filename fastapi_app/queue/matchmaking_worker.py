@@ -66,4 +66,4 @@ async def matchmaking_loop():
 
                 length = redis_client.llen(key)
 
-        await asyncio.sleep(1000)
+        await asyncio.sleep(10000)
