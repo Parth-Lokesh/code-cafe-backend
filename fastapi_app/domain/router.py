@@ -36,3 +36,16 @@ async def create_room_type(rt: RoomType):
 async def list_room_types():
     room_types = await db.room_types.find().to_list(100)
     return [serialize_doc(doc) for doc in room_types]
+
+
+@router.get("/get-room/{user_id}")
+async def get_room(user_id: str):
+    room = await db.rooms.find_one({
+        "status": "active",
+        "users.user_id": user_id
+    })
+
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    return {"room_id": room["room_id"]}
