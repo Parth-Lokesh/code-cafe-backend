@@ -22,7 +22,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 20160))
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://code-cafe-frontend.netlify.app")
-GITHUB_REDIRECT_URI = f"{FRONTEND_URL}/auth/github/callback"
+GITHUB_REDIRECT_URI = os.getenv("GITHUB_REDIRECT_URI")
 PISTON_URL = "https://emkc.org/api/v2/piston/execute"
 
 # --- Lifespan ---
