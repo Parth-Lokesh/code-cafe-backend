@@ -4,8 +4,8 @@ import random
 import uuid
 from fastapi_app.database.mongo import db
 from fastapi_app.queue.redis_connection import redis_client
-
-ROOM_SIZE = 4
+from fastapi_app.queue.router import user_sse_connections
+ROOM_SIZE = 2
 ROOM_TYPES = ["coding", "debugging"]  # define possible challenge types
 
 async def is_user_already_in_room(user_id: str) -> bool:
@@ -23,7 +23,7 @@ async def matchmaking_loop():
             decoded_key = key.decode("utf-8")
             domain = decoded_key.split(":")[1]
             length = redis_client.llen(key)
-
+            print("Into Matchmaking ")
             while length >= ROOM_SIZE:
                 users = []
                 skipped_users = []
@@ -46,19 +46,23 @@ async def matchmaking_loop():
 
                 for user in skipped_users:
                     redis_client.rpush(key, json.dumps(user))
-
+                print(users)
                 if len(users) == ROOM_SIZE:
-                    random_room_type = random.choice(ROOM_TYPES)
                     room_id = str(uuid.uuid4())
                     room = {
                         "room_id": room_id,
                         "domain": domain,
-                        "room_type": random_room_type,
+                        "room_type": random.choice(ROOM_TYPES),
                         "users": users,
                         "status": "active"
                     }
                     await db.rooms.insert_one(room)
                     print(f"Room created: {room}")
+                    for user in users:
+                        uid = user["user_id"]
+                        if uid in user_sse_connections:
+                            user_sse_connections[uid]["room_id"] = room_id
+                            user_sse_connections[uid]["event"].set()
                 else:
                     for user in users:
                         redis_client.rpush(key, json.dumps(user))
@@ -66,4 +70,8 @@ async def matchmaking_loop():
 
                 length = redis_client.llen(key)
 
-        await asyncio.sleep(10000)
+
+        await asyncio.sleep(10)
+
+#         await asyncio.sleep(10000)
+

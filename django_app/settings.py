@@ -41,9 +41,11 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "TechCafe",
+    "channels",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -51,10 +53,21 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    "corsheaders.middleware.CorsMiddleware",
 ]
 
 ROOT_URLCONF = 'django_app.urls'
+
+ASGI_APPLICATION = 'django_app.asgi.application'
+
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('http://measured-pelican-19697.upstash.io', 6379)],  # Redis connection settings
+        },
+    },
+}
 
 TEMPLATES = [
     {

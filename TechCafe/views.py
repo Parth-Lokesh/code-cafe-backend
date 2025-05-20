@@ -47,3 +47,52 @@ def GitHubAuthView(request):
         jwt_token = jwt.encode(payload, config("JWT_SECRET"), algorithm="HS256")
 
         return JsonResponse({"token": jwt_token, "user": {"name": name, "avatar": avatar}})
+
+
+# meet/views.py
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from fastapi_app.queue.queue import enqueue_user, get_queue_length, dequeue_users
+import json
+import traceback
+@api_view(["POST"])
+def join_queue_view(request):
+        try:
+            print("Request received:", request.body)
+            data = json.loads(request.body)
+            print(data)
+            user_id = data["user_id"]
+            domain=data["domain"]
+
+            result = enqueue_user( domain,user_id)
+            return JsonResponse(result, status=200, safe=False)
+
+        except Exception as e:
+            traceback.print_exc()
+            return JsonResponse({"error": str(e)}, status=400)
+
+@api_view(["GET"])
+def queue_status_view(request):
+        try:
+            domain = request.GET.get("domain")
+            room_type = request.GET.get("room_type")
+
+            result = get_queue_length(domain, room_type)
+            return JsonResponse(result, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+
+@api_view(["GET"])
+def simulate_room_view(request):
+        try:
+            domain = request.GET.get("domain")
+            room_type = request.GET.get("room_type")
+
+            users = dequeue_users(domain, room_type)
+            return JsonResponse(users, safe=False)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
