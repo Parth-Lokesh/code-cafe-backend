@@ -30,7 +30,7 @@ def enqueue_user(domain: str, user_id: str) -> bool:
     return True
 
 
-def dequeue_users(domain: str, room_type: str, batch_size=4):
+def dequeue_users(domain: str, room_type: str, batch_size=1):
     queue_key = get_queue_key(domain, room_type)
     users = []
     for _ in range(batch_size):
