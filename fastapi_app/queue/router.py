@@ -93,124 +93,90 @@ peers = {}  # { WebSocket: peer_id }
 
 @router.websocket("/ws/room/{room_id}/")
 async def websocket_endpoint(websocket: WebSocket, room_id: str):
+    await websocket.accept()
     peer_id = str(uuid4())
-    client = websocket.client
+    logging.info(f"New connection: peer_id={peer_id}, room_id={room_id}")
 
-    logging.info(f"🔌 New WebSocket connection attempt from {client} for room {room_id}")
+    if room_id not in rooms:
+        rooms[room_id] = set()
 
-    try:
-        await websocket.accept()
-        logging.info(f"✅ WebSocket connection accepted for {client}, assigned peer ID: {peer_id}")
-    except Exception as e:
-        logging.error(f"❌ WebSocket accept failed: {e}")
-        logging.error(traceback.format_exc())
-        return
-
-    try:
-        if room_id not in rooms:
-            rooms[room_id] = set()
-        rooms[room_id].add(websocket)
-        peers[websocket] = peer_id
-
-        logging.info(f"🧩 Peer {peer_id} joined room {room_id} | Total peers: {len(rooms[room_id])}")
-
-        # Send peer their own ID
-        await websocket.send_json({
-            "action": "assign-peer-id",
-            "peerID": peer_id
+    # Notify existing peers about new peer and vice versa
+    for peer_ws in rooms[room_id]:
+        logging.info(f"Notify existing peer {peers[peer_ws]} about new peer {peer_id}")
+        await peer_ws.send_json({
+            "action": "add-peer",
+            "peerID": peer_id,
+            "createOffer": False
         })
 
-        # Notify other peers in the room
-        for peer_ws in rooms[room_id]:
-            if peer_ws == websocket:
-                continue
+        logging.info(f"Notify new peer {peer_id} about existing peer {peers[peer_ws]}")
+        await websocket.send_json({
+            "action": "add-peer",
+            "peerID": peers[peer_ws],
+            "createOffer": True
+        })
 
-            other_peer_id = peers[peer_ws]
+    rooms[room_id].add(websocket)
+    peers[websocket] = peer_id
 
-            await peer_ws.send_json({
-                "action": "add-peer",
-                "peerID": peer_id,
-                "createOffer": False
-            })
+    logging.info(f"Sending own peer ID {peer_id} to client")
+    await websocket.send_json({
+        "action": "assign-peer-id",
+        "peerID": peer_id
+    })
 
-            await websocket.send_json({
-                "action": "add-peer",
-                "peerID": other_peer_id,
-                "createOffer": True
-            })
-
-            logging.info(f"🔄 Signaling between new peer {peer_id} and existing peer {other_peer_id}")
-
-        # Message loop
+    try:
         while True:
-            try:
-                data = await websocket.receive_text()
-                message = json.loads(data)
-                action = message.get("action")
-                logging.info(f"📩 Received action '{action}' from peer {peer_id}: {message}")
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            action = message.get("action")
+            logging.info(f"Received action '{action}' from peer {peer_id}: {message}")
 
-                if action == "relay-sdp":
-                    target_id = message["peerID"]
-                    sdp = message["sessionDescription"]
-                    await send_to_peer(room_id, target_id, {
-                        "action": "session-description",
-                        "peerID": peer_id,
-                        "sessionDescription": sdp
-                    })
-                    logging.info(f"📡 Relayed SDP from {peer_id} to {target_id}")
+            if action == "relay-sdp":
+                target_id = message["peerID"]
+                sdp = message["sessionDescription"]
+                logging.info(f"Relaying SDP from {peer_id} to {target_id}")
+                await send_to_peer(room_id, target_id, {
+                    "action": "session-description",
+                    "peerID": peer_id,
+                    "sessionDescription": sdp
+                })
 
-                elif action == "relay-ice":
-                    target_id = message["peerID"]
-                    ice = message["iceCandidate"]
-                    await send_to_peer(room_id, target_id, {
-                        "action": "ice-candidate",
-                        "peerID": peer_id,
-                        "iceCandidate": ice
-                    })
-                    logging.info(f"❄️ Relayed ICE candidate from {peer_id} to {target_id}")
-
-            except Exception as e:
-                logging.error(f"❌ Error in message loop for peer {peer_id}: {e}")
-                logging.error(traceback.format_exc())
-                break
+            elif action == "relay-ice":
+                target_id = message["peerID"]
+                ice = message["iceCandidate"]
+                logging.info(f"Relaying ICE candidate from {peer_id} to {target_id}")
+                await send_to_peer(room_id, target_id, {
+                    "action": "ice-candidate",
+                    "peerID": peer_id,
+                    "iceCandidate": ice
+                })
 
     except WebSocketDisconnect:
-        logging.warning(f"⚠️ Peer {peer_id} disconnected from room {room_id}")
-    except Exception as e:
-        logging.error(f"❌ Unexpected error in WebSocket handler for peer {peer_id}: {e}")
-        logging.error(traceback.format_exc())
-    finally:
-        # Cleanup
+        logging.info(f"Peer {peer_id} disconnected")
         rooms[room_id].remove(websocket)
-        peers.pop(websocket, None)
+        del peers[websocket]
 
-        logging.info(f"🧹 Cleaned up peer {peer_id} from room {room_id}")
+        for peer_ws in rooms[room_id]:
+            try:
+                logging.info(f"Notifying peer {peers[peer_ws]} that {peer_id} left")
+                await peer_ws.send_json({
+                    "action": "remove-peer",
+                    "peerID": peer_id
+                })
+            except Exception as e:
+                logging.error(f"Error notifying peer {peers[peer_ws]}: {e}")
 
-        if rooms[room_id]:
-            for peer_ws in rooms[room_id]:
-                try:
-                    await peer_ws.send_json({
-                        "action": "remove-peer",
-                        "peerID": peer_id
-                    })
-                    logging.info(f"👋 Notified peer {peers[peer_ws]} about disconnect of {peer_id}")
-                except Exception as e:
-                    logging.error(f"❌ Failed to notify peer {peers[peer_ws]}: {e}")
-        else:
+        if not rooms[room_id]:
             del rooms[room_id]
-            logging.info(f"🚪 Room {room_id} deleted (no remaining peers)")
-
-
+            logging.info(f"Deleted empty room {room_id}")
 
 async def send_to_peer(room_id: str, target_peer_id: str, data: dict):
     for ws in rooms.get(room_id, []):
         if peers.get(ws) == target_peer_id:
             try:
                 await ws.send_json(data)
-                logging.info(f"📤 Sent to peer {target_peer_id} in room {room_id}: {data}")
-                return
+                logging.info(f"Sent data to peer {target_peer_id} in room {room_id}: {data}")
             except Exception as e:
-                logging.error(f"❌ Error sending to peer {target_peer_id}: {e}")
-                logging.error(traceback.format_exc())
-                return
-    logging.warning(f"⚠️ Target peer {target_peer_id} not found in room {room_id}")
+                logging.error(f"Error sending to peer {target_peer_id}: {e}")
+            break
