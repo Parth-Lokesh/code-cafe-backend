@@ -14,6 +14,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import Dict, List
 # Load environment variables
 load_dotenv()
+secure_cookie = os.getenv("COOKIE_SECURED", "false").lower() == "true"
 
 # --- Configuration ---
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
@@ -166,7 +167,7 @@ async def exchange_github_code_for_token(payload: dict):
         "user": session_data,
         "access_token": session_token
     })
-    secure_cookie = os.getenv("COOKIE_SECURED", "false").lower() == "true"
+    print("Secure Cookie",secure_cookie)
     response.set_cookie(
     key="session_token",
     value=session_token,
