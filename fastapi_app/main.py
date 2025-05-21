@@ -173,7 +173,7 @@ async def exchange_github_code_for_token(payload: dict):
     value=session_token,
     httponly=True,
     samesite="None",  # or "None" if you're doing cross-site cookies
-    secure=secure_cookie,  # ✅ Required for HTTPS
+    secure=True,  # ✅ Required for HTTPS
     max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     expires=datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
