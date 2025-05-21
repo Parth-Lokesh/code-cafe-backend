@@ -86,7 +86,6 @@ async def remove_user_from_room(request: Request):
         "message": f"User {user_id} removed from room {room_id}"
     }
 
-
 # In-memory room and connection storage
 rooms = {}  # { room_id: set of WebSockets }
 peers = {}  # { WebSocket: peer_id }
@@ -99,26 +98,35 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
     if room_id not in rooms:
         rooms[room_id] = set()
 
-    # Notify existing peers about new peer
+    # ✅ Register the peer first
+    rooms[room_id].add(websocket)
+    peers[websocket] = peer_id
+
+    # ✅ Tell the joining peer their own ID
+    await websocket.send_json({
+        "action": "assign-peer-id",
+        "peerID": peer_id
+    })
+
+    # ✅ Notify existing peers about the new one
     for peer in rooms[room_id]:
+        if peer == websocket:
+            continue
+
+        # Notify existing peer about the new one
         await peer.send_json({
             "action": "add-peer",
             "peerID": peer_id,
             "createOffer": False
         })
 
+        # Notify new peer about the existing one (and ask it to create an offer)
         await websocket.send_json({
             "action": "add-peer",
             "peerID": peers[peer],
             "createOffer": True
         })
 
-    rooms[room_id].add(websocket)
-    peers[websocket] = peer_id
-    await websocket.send_json({
-    "action": "assign-peer-id",
-    "peerID": peer_id
-    })
     try:
         while True:
             data = await websocket.receive_text()
@@ -144,21 +152,24 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                 })
 
     except WebSocketDisconnect:
+        # Cleanup on disconnect
         rooms[room_id].remove(websocket)
         del peers[websocket]
 
+        # Notify remaining peers that this peer has left
         for peer in rooms[room_id]:
             await peer.send_json({
                 "action": "remove-peer",
                 "peerID": peer_id
             })
 
+        # Clean up empty room
         if not rooms[room_id]:
             del rooms[room_id]
 
 
 async def send_to_peer(room_id: str, target_peer_id: str, data: dict):
-    for ws in rooms[room_id]:
-        if peers[ws] == target_peer_id:
+    for ws in rooms.get(room_id, []):
+        if peers.get(ws) == target_peer_id:
             await ws.send_json(data)
             break
