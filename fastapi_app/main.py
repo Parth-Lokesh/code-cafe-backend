@@ -166,15 +166,17 @@ async def exchange_github_code_for_token(payload: dict):
         "user": session_data,
         "access_token": session_token
     })
+    secure_cookie = os.getenv("COOKIE_SECURED", "false").lower() == "true"
     response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        samesite="lax",
-        secure=False,
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        expires=datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    key="session_token",
+    value=session_token,
+    httponly=True,
+    samesite="lax",  # or "None" if you're doing cross-site cookies
+    secure=secure_cookie,  # ✅ Required for HTTPS
+    max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    expires=datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
+
 
     return response
 
