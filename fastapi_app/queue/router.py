@@ -152,20 +152,19 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                 })
 
     except WebSocketDisconnect:
-        # Cleanup on disconnect
         rooms[room_id].remove(websocket)
-        del peers[websocket]
+        peer_id = peers.pop(websocket, None)
 
-        # Notify remaining peers that this peer has left
-        for peer in rooms[room_id]:
-            await peer.send_json({
-                "action": "remove-peer",
-                "peerID": peer_id
-            })
+        if peer_id:
+            for peer in rooms[room_id]:
+                await peer.send_json({
+                    "action": "remove-peer",
+                    "peerID": peer_id
+                })
 
-        # Clean up empty room
         if not rooms[room_id]:
             del rooms[room_id]
+
 
 
 async def send_to_peer(room_id: str, target_peer_id: str, data: dict):
